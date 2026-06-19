@@ -1,0 +1,33 @@
+{
+  "package": "com.lonel.wordcard",
+  "name": "每日记单词",
+  "versionName": "1.0.0",
+  "versionCode": 1,
+  "minPlatformVersion": 1200,
+  "icon": "/common/logo.png",
+  "simulationVersion": "default",
+  "deviceTypeList": ["watch"],
+  "features": [
+    { "name": "system.router" },
+    { "name": "system.storage" },
+    { "name": "system.prompt" },
+    { "name": "system.brightness" },
+    { "name": "system.configuration" }
+  ],
+  "config": {
+    "logLevel": "log",
+    "designWidth": "device-width"
+  },
+  "router": {
+    "entry": "pages/index",
+    "pages": {
+      "pages/index": { "component": "index" },
+      "pages/about": { "component": "about" },
+      "pages/settings": { "component": "settings" },
+      "pages/learn": { "component": "learn" }, 
+      "pages/statistics": { "component": "statistics" },
+      "pages/help": { "component": "help" }
+
+    }
+  }
+}
