@@ -1,0 +1,544 @@
+<template>
+  <scroll scroll-y="true" class="page-scroll">
+    <div class="container">
+      
+      <div class="header">
+        <text class="back-btn" @click="goHome"> 返回 </text>
+        <text class="header-time">{{ currentTime }}</text>
+        <text class="title">今日单词</text>
+      </div>
+
+      <div class="learn-region" if="{{!isFinished}}">
+        
+        <div class="progress-bar">
+          <text class="progress-txt">待清数: {{activeIndices.length}} 个</text>
+          <text class="progress-txt">已学: {{uniqueStudiedCount}}/{{totalWordsCount}}</text>
+        </div>
+
+        <div class="word-card">
+          <text class="eng">{{currentWord.english}}</text>
+          <text class="phonetic">{{currentWord.phonetic}}</text>
+          
+          <div class="chinese-zone" @click="toggleChinese">
+            <text class="chinese-text" if="{{isChineseVisible}}">{{currentWord.chinese}}</text>
+            <text class="chinese-btn-text" else>点击显示中文释义</text>
+          </div>
+        </div>
+
+        <div class="buttons-grid">
+          <div class="option-btn familiar-color" @click="markWord('familiar')">
+            <text class="option-txt">熟知</text>
+          </div>
+          <div class="option-btn know-color" @click="markWord('know')">
+            <text class="option-txt-dark">认识</text>
+          </div>
+          <div class="option-btn vague-color" @click="markWord('vague')">
+            <text class="option-txt-dark">模糊</text>
+          </div>
+          <div class="option-btn forgot-color" @click="markWord('forgot')">
+            <text class="option-txt">忘记</text>
+          </div>
+        </div>
+
+        <div class="btn-quit" @click="endTodayPractice">
+          <text class="btn-quit-text">结束今日练习</text>
+        </div>
+      </div>
+
+      <div class="end-region" else>
+        <div class="complete-header">
+          <text class="zhufu">恭喜</text>
+          <text class="complete-label">今日修行已结束</text>
+          <text class="complete-sub">{{isRepeatMode ? '【当前为复习测试模式】' : '完成今日背诵进度'}}</text>
+        </div>
+
+        <div class="report-box">
+          <text class="report-row">学习单词数: {{uniqueStudiedCount}} 个</text>
+          <text class="report-row color-fam">熟记: {{stats.familiar}}</text>
+          <text class="report-row color-kno">认识: {{stats.know}}</text>
+          <text class="report-row color-vag">模糊: {{stats.vague}}</text>
+          <text class="report-row color-for">忘记: {{stats.forgot}}</text>
+        </div>
+
+        <div class="action-grid">
+          <div class="action-btn repeat-style" @click="startRepeatPractice">
+            <text class="action-btn-text">重复练习</text>
+          </div>
+          <div class="action-btn home-style" @click="goHome">
+            <text class="action-btn-text">回到首页</text>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </scroll>
+</template>
+
+<style>
+  .page-scroll {
+    width: 100%;
+    height: 100%;
+    background-color: #000000;
+    flex-direction: column;
+  }
+  .container {
+    flex-direction: column;
+    align-items: center;
+    width: 336px;
+    padding: 20px 18px 40px 18px;
+    flex-shrink: 0;
+  }
+  .report-box {
+    flex-shrink: 0;
+  }
+  .header {
+    width: 100%;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+  }
+  .header-time {
+    position: absolute;
+    left: 50px;
+    width: 182px;
+    height: 32px;
+    opacity: 1;
+    font-size: 23px;
+    font-weight: 600;
+    line-height: 34px; 
+    color: rgba(255, 255, 255, 0.6);
+    text-align: center;
+  }
+  .back-btn {
+    font-size: 24px;
+    color: #3498db;
+    font-weight: bold;
+    padding: 5px 10px;
+  }
+  .title {
+    font-size: 24px;
+    color: #ffffff;
+    font-weight: bold;
+  }
+  .learn-region {
+    width: 100%;
+    flex-direction: column;
+  }
+  .progress-bar {
+    width: 100%;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .progress-txt {
+    font-size: 20px;
+    color: #aaaaaa;
+  }
+  .word-card {
+    width: 100%;
+    background-color: #1a1a1a;
+    border-radius: 16px;
+    padding: 25px 20px;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 20px;
+  }
+  .eng {
+    font-size: 42px;
+    color: #ffffff;
+    font-weight: bold;
+    text-align: center;
+    margin-bottom: 8px;
+  }
+  .phonetic {
+    font-size: 24px;
+    color: #95a5a6;
+    text-align: center;
+    margin-bottom: 25px;
+  }
+  .chinese-zone {
+    width: 100%;
+    background-color: #2c2c2c;
+    border-radius: 10px;
+    padding: 15px;
+    justify-content: center;
+    align-items: center;
+  }
+  .chinese-text {
+    font-size: 24px;
+    color: #e67e22;
+    text-align: center;
+    line-height: 32px;
+  }
+  .chinese-btn-text {
+    font-size: 22px;
+    color: #3498db;
+  }
+  .buttons-grid {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    width: 100%;
+    margin-bottom: 20px;
+  }
+  .option-btn {
+    width: 48%;
+    height: 75px;
+    justify-content: center;
+    align-items: center;
+    border-radius: 12px;
+    margin-bottom: 12px;
+  }
+  .option-txt {
+    font-size: 21px;
+    color: #ffffff;
+    font-weight: bold;
+  }
+  .option-txt-dark {
+    font-size: 21px;
+    color: #111111;
+    font-weight: bold;
+  }
+  .familiar-color {
+    background-color: #2ecc71;
+  }
+  .know-color {
+    background-color: #ffffff;
+  }
+  .vague-color {
+    background-color: #f1c40f;
+  }
+  .forgot-color {
+    background-color: #e74c3c;
+  }
+  .btn-quit {
+    width: 100%;
+    height: 70px;
+    background-color: #2c3e50;
+    border-radius: 12px;
+    justify-content: center;
+    align-items: center;
+  }
+  .btn-quit-text {
+    font-size: 23px;
+    color: #ffffff;
+    font-weight: bold;
+  }
+  
+  /* 结算区域样式 */
+  .end-region {
+    width: 100%;
+    flex-direction: column;
+    align-items: center;
+  }
+  .complete-header {
+    flex-direction: column;
+    align-items: center;
+    margin: 15px 0;
+  }
+  .zhufu {
+    font-size: 30px;
+    color: red;
+  }
+  .complete-label {
+    font-size: 30px;
+    color: #ffffff;
+    font-weight: bold;
+  }
+  .complete-sub {
+    font-size: 20px;
+    color: #95a5a6;
+    margin-top: 5px;
+  }
+  .report-box {
+    width: 100%;
+    background-color: #1a1a1a;
+    border-radius: 14px;
+    padding: 20px;
+    flex-direction: column;
+    margin-bottom: 25px;
+  }
+  .report-row {
+    font-size: 24px;
+    color: #ffffff;
+    margin-bottom: 10px;
+  }
+  .color-fam { color: #2ecc71; }
+  .color-kno { color: #aaaaaa; }
+  .color-vag { color: #f1c40f; }
+  .color-for { color: #e74c3c; }
+
+  .action-grid {
+    width: 100%;
+    flex-direction: column;
+  }
+  .action-btn {
+    width: 100%;
+    height: 75px;
+    justify-content: center;
+    align-items: center;
+    border-radius: 12px;
+    margin-bottom: 12px;
+  }
+  .repeat-style {
+    background-color: #1abc9c;
+  }
+  .home-style {
+    background-color: #7f8c8d;
+  }
+  .action-btn-text {
+    font-size: 24px;
+    color: #ffffff;
+    font-weight: bold;
+  }
+</style>
+
+<script> //好了，下面是ai了
+  import router from '@system.router';
+  import storage from '@system.storage';
+  import { words } from '../../common/words.js';
+
+  const getStoreValue = (key) => new Promise((resolve) => {
+    storage.get({ key, success: (d) => resolve(d ? JSON.parse(d) : null), fail: () => resolve(null) });
+  });
+
+  const setStoreValue = (key, val) => new Promise((resolve) => {
+    storage.set({ key, value: JSON.stringify(val), success: () => resolve(true) });
+  });
+
+  const getLocalDate = () => {
+    const d = new Date();
+    const m = ('0' + (d.getMonth() + 1)).slice(-2);
+    const date = ('0' + d.getDate()).slice(-2);
+    return `${d.getFullYear()}-${m}-${date}`;
+  };
+
+  export default {
+    private: {
+      currentTime: '00:00', 
+      timer: null,
+      sessionWords: [],      
+      activeIndices: [],
+      isChineseVisible: false,
+      isFinished: false,
+      isRepeatMode: false,
+      hasSavedStats: false,  
+      totalWordsCount: 0,
+      uniqueStudiedCount: 0,
+      currentWord: { english: '', phonetic: '', chinese: '' },
+      stats: { familiar: 0, know: 0, vague: 0, forgot: 0 }
+    },
+
+    async onInit() {
+      const today = getLocalDate();
+      const loadedSession = await getStoreValue('vocab_today_save');
+
+      if (loadedSession && loadedSession.date === today) {
+        this.sessionWords = loadedSession.words;
+        this.activeIndices = loadedSession.activeIndices;
+        this.isFinished = loadedSession.isFinished;
+        this.hasSavedStats = loadedSession.hasSavedStats;
+        this.stats = loadedSession.stats;
+        this.isRepeatMode = loadedSession.isRepeatMode || false;
+        this.totalWordsCount = this.sessionWords.length;
+        this.updateUniqueStudied();
+      } else {
+        const userFamiliar = await getStoreValue('vocab_familiar_words') || [];
+        
+        // 使用原生的 Set 去重，把 O(N*M) 降为 O(N+M)
+        const familiarSet = new Set(userFamiliar);
+        const learnPool = words.filter(w => !familiarSet.has(w.english));
+
+        if (learnPool.length === 0) {
+          this.isFinished = true;
+          this.totalWordsCount = 0;
+          return;
+        }
+
+        const shuffled = this.shuffle([...learnPool]);
+        const chosen = shuffled.slice(0, Math.min(50, shuffled.length));
+
+        this.sessionWords = chosen.map(w => ({
+          english: w.english,
+          phonetic: w.phonetic,
+          chinese: w.chinese,
+          shownCount: 0,      
+          targetCount: 1,     
+          state: 'none',       
+          firstState: 'none'  
+        }));
+        this.activeIndices = [];
+        for (let i = 0; i < this.sessionWords.length; i++) {
+          this.activeIndices.push(i);
+        }
+
+        this.isFinished = false;
+        this.isRepeatMode = false;
+        this.hasSavedStats = false;
+        this.stats = { familiar: 0, know: 0, vague: 0, forgot: 0 };
+        this.totalWordsCount = this.sessionWords.length;
+        this.uniqueStudiedCount = 0;
+        this.saveCurrentSession();
+      }
+      this.loadIndexWord();
+      this.updateTime();
+      
+      // 定时器赋值
+      this.timer = setInterval(() => {
+        this.updateTime();
+      }, 1000);
+    },
+    onDestroy() {
+      if (this.timer) {
+        clearInterval(this.timer);
+        this.timer = null;
+      }
+    },
+
+    updateTime() {
+      const d = new Date();
+      const h = ('0' + d.getHours()).slice(-2);
+      const m = ('0' + d.getMinutes()).slice(-2);
+      this.currentTime = `${h}:${m}`;
+    },
+
+    shuffle(arr) {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        const temp = arr[i];
+        arr[i] = arr[j];
+        arr[j] = temp;
+      }
+      return arr;
+    },
+
+    loadIndexWord() {
+      if (this.activeIndices.length > 0) {
+        const idx = this.activeIndices[0];
+        this.currentWord = this.sessionWords[idx];
+        this.isChineseVisible = false;
+      } else {
+        this.finishSession();
+      }
+    },
+
+    toggleChinese() {
+      this.isChineseVisible = !this.isChineseVisible;
+    },
+
+    updateUniqueStudied() {
+      this.uniqueStudiedCount = this.sessionWords.filter(w => w.shownCount > 0).length;
+    },
+
+    async markWord(chosenState) {
+      if (this.activeIndices.length === 0) return;
+      const sessionIndex = this.activeIndices[0];
+      const word = this.sessionWords[sessionIndex];
+
+      word.shownCount++;
+      word.state = chosenState;
+      if (!this.isRepeatMode && word.firstState === 'none') {
+        word.firstState = chosenState;
+      }
+
+      if (chosenState === 'familiar' && !this.isRepeatMode) {
+        await this.addGlobalFamiliar(word.english);
+      }
+
+      if (chosenState === 'familiar') {
+        word.targetCount = word.shownCount;
+      } else if (chosenState === 'know') {
+        word.targetCount = 3;
+      } else if (chosenState === 'vague') {
+        word.targetCount = 5;
+      } else if (chosenState === 'forgot') {
+        word.targetCount = 7;
+      }
+
+      this.activeIndices.shift();
+      if (word.shownCount < word.targetCount && chosenState !== 'familiar') {
+        this.activeIndices.push(sessionIndex);
+      }
+
+      this.updateUniqueStudied();
+      this.saveCurrentSession();
+      if (this.activeIndices.length === 0) {
+        this.finishSession();
+      } else {
+        this.loadIndexWord();
+      }
+    },
+
+    async addGlobalFamiliar(engWord) {
+      const famList = await getStoreValue('vocab_familiar_words') || [];
+      if (!famList.includes(engWord)) {
+        famList.push(engWord);
+        await setStoreValue('vocab_familiar_words', famList);
+      }
+    },
+
+    endTodayPractice() {
+      this.finishSession();
+    },
+
+    finishSession() {
+      this.isFinished = true;
+      if (!this.isRepeatMode && !this.hasSavedStats) {
+        let statsFam = 0, statsKno = 0, statsVag = 0, statsFor = 0;
+        this.sessionWords.forEach(w => {
+          if (w.shownCount > 0) {
+            if (w.firstState === 'familiar') statsFam++;
+            else if (w.firstState === 'know') statsKno++;
+            else if (w.firstState === 'vague') statsVag++;
+            else if (w.firstState === 'forgot') statsFor++;
+          }
+        });
+        this.stats = { familiar: statsFam, know: statsKno, vague: statsVag, forgot: statsFor };
+        this.archiveFirstStudyToHistory();
+        this.hasSavedStats = true;
+      }
+      this.saveCurrentSession();
+    },
+
+    async archiveFirstStudyToHistory() {
+      const statsMap = await getStoreValue('vocab_global_stats') || {};
+      const todayKey = getLocalDate();
+      statsMap[todayKey] = this.stats;
+      await setStoreValue('vocab_global_stats', statsMap);
+    },
+
+    saveCurrentSession() {
+      setStoreValue('vocab_today_save', {
+        date: getLocalDate(),
+        words: this.sessionWords,
+        activeIndices: this.activeIndices,
+        isFinished: this.isFinished,
+        hasSavedStats: this.hasSavedStats,
+        stats: this.stats,
+        isRepeatMode: this.isRepeatMode,
+        totalWordsCount: this.totalWordsCount
+      });
+    },
+
+    startRepeatPractice() {
+      this.isRepeatMode = true;
+      this.sessionWords.forEach(w => {
+        w.shownCount = 0;
+        w.targetCount = 1;
+        w.state = 'none';
+      });
+      this.activeIndices = [];
+      for (let i = 0; i < this.sessionWords.length; i++) {
+        this.activeIndices.push(i);
+      }
+
+      this.isFinished = false;
+      this.uniqueStudiedCount = 0;
+      this.saveCurrentSession();
+      this.loadIndexWord();
+    },
+
+    goHome() {
+      router.back();
+    }
+  }
+</script>
