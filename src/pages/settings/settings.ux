@@ -1,0 +1,318 @@
+<template>
+  <div class="page">
+    <scroll scroll-y="true" class="page-scroll">
+      <div class="container">
+        
+        <div class="header">
+          <text class="back" @click="goBack">返回</text>
+          <text class="header-time">{{ currentTime }}</text>
+          <text class="title">系统设置</text>
+        </div>
+
+        <div class="settings-card">
+          <text class="card-title">清除数据</text>
+          <text class="card-desc">清除所有统计和进度。</text>
+          <div class="action-btn danger-style" @click="startClearConfirmation">
+            <text class="action-txt">清空数据</text>
+          </div>
+        </div>
+
+        <div class="settings-card">
+          <div class="row-item">
+            <text class="switch-label">屏幕常亮</text>
+            <switch class="small-switch" checked="{{ keepScreenOn }}" @change="onKeepScreenOnChange"></switch>
+          </div>
+          <text class="card-desc">开启后，屏幕将保持常亮状态。</text>
+        </div>
+
+        <div class="info-card">
+          <text class="info-header">详细信息</text>
+          <text class="sub-text">机型: 小米手环 9 Pro</text>
+          <text class="sub-text">版本号v1.0.0</text>
+        </div>
+
+      </div>
+    </scroll>
+  </div>
+</template>
+
+<style>
+  .page {
+    width: 100%;
+    height: 100%;
+    flex-direction: column;
+    background-color: #000000;
+  }
+  .page-scroll {
+    width: 100%;
+    flex-direction: column;
+    flex: 1;
+  }
+
+  .container {
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    padding: 20px 18px 60px 18px;
+  }
+
+  .header {
+    width: 100%;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    background-color: transparent;
+    border-width: 0px; 
+    margin-bottom: 25px;
+    padding-top: 10px;
+    padding-bottom: 15px;
+    border-bottom-width: 1px;
+    border-bottom-style: solid;
+    border-bottom-color: #222222;
+  }
+  .header-time {
+    position: absolute;
+    left: 50px;
+    width: 182px;
+    height: 32px;
+    opacity: 1;
+    font-size: 22px;
+    font-weight: 600;
+    line-height: 34px; 
+    color: rgba(255, 255, 255, 0.6);
+    text-align: center;
+  }
+  .back {
+    font-size: 24px;
+    color: #3498db;
+    font-weight: bold;
+    padding: 5px 10px;
+  }
+
+  .title {
+    font-size: 24px;
+    color: #ffffff;
+    font-weight: bold;
+  }
+
+  .settings-card {
+    width: 100%;
+    background-color: #1a1a1a;
+    border-radius: 14px;
+    padding: 20px;
+    flex-direction: column;
+    margin-bottom: 20px;
+  }
+
+  .card-title {
+    font-size: 24px;
+    color: #ffffff;
+    font-weight: bold;
+    margin-bottom: 10px;
+  }
+
+  .card-desc {
+    font-size: 18px;
+    color: #95a5a6;
+    line-height: 26px;
+    margin-top: 8px;
+  }
+
+  .action-btn {
+    width: 100%;
+    height: 75px;
+    justify-content: center;
+    align-items: center;
+    border-radius: 12px;
+    margin-top: 6px;
+  }
+
+  .danger-style {
+    background-color: #e74c3c;
+  }
+
+  .action-txt {
+    font-size: 22px;
+    color: #ffffff;
+    font-weight: bold;
+  }
+
+  .row-item {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+  }
+  .small-switch {
+    width: 60px;
+    height: 34px;
+  }
+  .switch-label {
+    font-size: 24px;
+    color: #ffffff;
+    font-weight: bold;
+  }
+  .small-switch {
+  /* 缩小到原来的 0.75 倍 */
+  transform: scale(0.75); 
+  transform-origin: center right; 
+}
+
+  /* ========== 信息卡片 ========== */
+  .info-card {
+    width: 100%;
+    background-color: #1a1a1a;
+    border-radius: 14px;
+    padding: 20px;
+    flex-direction: column;
+    margin-bottom: 10px;
+  }
+
+  .info-header {
+    font-size: 21px;
+    color: #aaaaaa;
+    margin-bottom: 10px;
+  }
+
+  .sub-text {
+    font-size: 18px;
+    color: #7f8c8d;
+    margin-bottom: 4px;
+  }
+</style>
+
+<script>
+  import router from '@system.router';
+  import storage from '@system.storage';
+  import prompt from '@system.prompt';
+  import brightness from '@system.brightness';
+
+  export default {
+  
+    private: {
+      currentTime: '00:00', 
+      timer: null,
+      keepScreenOn: false,
+    },
+  onReady() {
+    this.updateTime();          // 立即显示一次
+    this.timer = setInterval(() => {
+      this.updateTime();
+    }, 1000);                   // 每秒刷新
+  },
+  onHide() {
+    if (this.timer) {
+      clearInterval(this.timer);
+      this.timer = null;
+    }
+  },
+  updateTime() {
+    const now = new Date();
+    const h = String(now.getHours()).padStart(2, '0');
+    const m = String(now.getMinutes()).padStart(2, '0');
+    this.currentTime = `${h}:${m}`;
+  },
+
+    onInit() {
+      // 读取存储的常亮状态
+      storage.get({
+        key: 'keep_screen_on',
+        success: (data) => {
+          this.keepScreenOn = data === 'true';
+          // 恢复之前的常亮设置
+          brightness.setKeepScreenOn({
+            keepScreenOn: this.keepScreenOn,
+            fail: (err) => {
+              console.log('恢复常亮状态失败:', err);
+            }
+          });
+        },
+        fail: () => {
+          this.keepScreenOn = false;
+        }
+      });
+    },
+
+    goBack() {
+      router.back();
+    },
+
+    // ====== 屏幕常亮开关 ======
+    onKeepScreenOnChange(e) {
+      const newState = e.checked;
+      this.keepScreenOn = newState;
+
+      brightness.setKeepScreenOn({
+        keepScreenOn: newState,
+        success: () => {
+          console.log('屏幕常亮设置成功:', newState);
+          storage.set({
+            key: 'keep_screen_on',
+            value: String(newState),
+            fail: (err) => {
+              console.log('存储常亮状态失败:', err);
+            }
+          });
+        },
+        fail: (data, code) => {
+          console.log('设置屏幕常亮失败:', data, code);
+          prompt.showToast({
+            message: '设置失败，请重试',
+            duration: 1500
+          });
+          this.keepScreenOn = !newState;
+        }
+      });
+    },
+
+    // ====== 清除数据（双重确认） ======
+    startClearConfirmation() {
+      prompt.showDialog({
+        title: '警告',
+        message: '你确定要清除本地所有的统计和缓存吗？此操作不可回退！',
+        buttons: [
+          { text: '确认', color: '#ff3333' },
+          { text: '取消', color: '#888888' }
+        ],
+        success: (data) => {
+          if (data.index === 0) {
+            prompt.showDialog({
+              title: '二次核验确认',
+              message: '再次确认：清空后所有熟知名单和7天统计图将归零。',
+              buttons: [
+                { text: '确认', color: '#ff3333' },
+                { text: '取消', color: '#888888' }
+              ],
+              success: (secData) => {
+                if (secData.index === 0) {
+                  this.wipeAllPracticeRecords();
+                }
+              }
+            });
+          }
+        }
+      });
+    },
+
+    wipeAllPracticeRecords() {
+      const allWipeKeys = ['vocab_familiar_words', 'vocab_global_stats', 'vocab_today_save'];
+      let errorOccurred = false;
+      let deleteCount = 0;
+
+      allWipeKeys.forEach(k => {
+        storage.delete({
+          key: k,
+          success: () => {
+            deleteCount++;
+            if (deleteCount === allWipeKeys.length && !errorOccurred) {
+              prompt.showToast({ text: '清除完毕' });
+            }
+          },
+          fail: () => {
+            errorOccurred = true;
+          }
+        });
+      });
+    }
+  }
+</script>
