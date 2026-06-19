@@ -1,0 +1,105 @@
+<template>
+    <div class="page">
+      <scroll scroll-y="true" class="page-scroll">
+        <div class="container">
+          <div class="header">
+            <text class="title">帮助中心</text>
+          </div>
+          <div class="help-content">
+            <div class="help-item" for="{{helpList}}">
+              <text class="help-text">{{$item}}</text>
+            </div>
+          </div>
+  
+          <div class="footer">
+            <input type="button" class="back-btn" value="返回" onclick="goBack" />
+          </div>
+        </div>
+      </scroll>
+    </div>
+  </template>
+  
+  <style>
+    .page {
+      width: 100%;
+      height: 100%;
+      background-color: #000000;
+      flex-direction: column;
+    }
+    .page-scroll {
+      width: 100%;
+      height: 100%; 
+      flex-direction: column;
+    }
+    .container {
+      flex-direction: column;
+      padding: 20px;
+      width: 100%;
+    }
+    .header {
+      margin-bottom: 20px;
+      justify-content: center;
+      width: 100%;
+    }
+    .title {
+      font-size: 28px;
+      color: #ffffff;
+      font-weight: bold;
+      text-align: center;
+    }
+  
+    .help-content {
+      width: 100%;
+      flex-direction: column;
+      margin-bottom: 20px;
+    }
+    .help-item {
+      width: 100%;
+      flex-direction: column;
+      margin-bottom: 12px; 
+    }
+    .help-text {
+      width: 100%;
+      font-size: 18px;       
+      color: #eeeeee;
+      line-height: 26px;     
+      lines: -1; 
+      text-overflow: clip;
+    }
+    .footer {
+      width: 100%;
+      margin-top: 10px;
+    }
+    .back-btn {
+      width: 100%;
+      height: 60px;
+      background-color: #3498db;
+      border-radius: 12px;
+      color: #ffffff;
+      font-size: 22px;
+    }
+  </style>
+  
+  <script>
+    import router from '@system.router';
+  
+    export default {
+      private: {
+        helpList: [
+          '1. 对于熟知单词，今后练习中不会再出现该类单词。',
+          '2. 除熟知单词以外，其余都归为待练习单词，需今后重复练习，而熟知单词在今后不会再次出现，每日练习从待练习单词中随机挑选50个。',
+          '3. 对于认识类单词，在今日练习中将会重复3次。',
+          '4. 对于模糊类单词，在今日练习中将会重复5次。',
+          '5. 对于忘记类单词，在今日练习中将会重复7次。',
+          '6. 对于每个单词每日重复出现次数标准为第一次所选。',
+          '7. 今日所有单词都标记为熟知之后及今日练习结束，用户可选择重复练习模式，仅重置当日 50 个所学单词，不会额外再选取新单词。',
+          '8. 统计页面数据仅为当日第一次结束练习记录，复习数据不计入其中。',
+          '9. 因屏幕较小，各位学生不宜长时间注视屏幕。',
+          '10. 单词库默认为高中词汇，若有额外需求，请联系作者邮箱：Lonelybing@outlook.com'
+        ]
+      },
+      goBack() {
+        router.back();
+      }
+    }
+  </script>
