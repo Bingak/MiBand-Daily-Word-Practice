@@ -34,6 +34,11 @@ words.js内格式均为{ "english": "terrible", "phonetic": "[ˈterəbl]", "chin
 
 9. UI简洁清晰明了，（其实是作者懒得多加花里胡哨的（乐））。问就是不会
 
+## 更换词库 / 重新构建
+
+- 词库源文件位于 `data/words.source.js`，三段式 `{ english, phonetic, chinese }` 结构不变，直接替换此文件即可
+- 修改词库后，运行 `python tools/build_words.py` 重新生成 `src/common/words/` 分片（无需手动改代码）
+- 想缩小词库排查问题时可用 `python tools/build_words.py --limit 3000`
 
 本小程序最大股东为作者本人（GPT）。更新的话看情况，因为我还得练驾照（恼），但只要有空就会搞一搞。
 

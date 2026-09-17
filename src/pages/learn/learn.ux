@@ -295,7 +295,23 @@
 <script> //好了，下面是ai了
   import router from '@system.router';
   import storage from '@system.storage';
-  import { words } from '../../common/words.js';
+  // 惰性加载器：替代原先一次性 import 全量对象数组的写法
+  import { pickDaily } from '../../common/wordLoader.js';
+
+  // ===== 每日背诵数量配置（与 settings.ux 保持一致）=====
+  const KEY_DAILY = 'daily_word_count';
+  const DAILY_DEFAULT = 50;
+  const DAILY_MIN = 10;
+  const DAILY_MAX = 200;
+
+  // 对读到的值做范围校验，非法值回落到默认值
+  const normalizeDaily = (val) => {
+    const n = parseInt(val, 10);
+    if (isNaN(n)) return DAILY_DEFAULT;
+    if (n < DAILY_MIN) return DAILY_MIN;
+    if (n > DAILY_MAX) return DAILY_MAX;
+    return n;
+  };
 
   const getStoreValue = (key) => new Promise((resolve) => {
     storage.get({ key, success: (d) => resolve(d ? JSON.parse(d) : null), fail: () => resolve(null) });
@@ -324,6 +340,8 @@
       hasSavedStats: false,  
       totalWordsCount: 0,
       uniqueStudiedCount: 0,
+      dailyCount: DAILY_DEFAULT,
+      saveTimer: null,
       currentWord: { english: '', phonetic: '', chinese: '' },
       stats: { familiar: 0, know: 0, vague: 0, forgot: 0 }
     },
@@ -331,54 +349,36 @@
     async onInit() {
       const today = getLocalDate();
       const loadedSession = await getStoreValue('vocab_today_save');
+      const wantDaily = normalizeDaily(await getStoreValue(KEY_DAILY));
 
-      if (loadedSession && loadedSession.date === today) {
+      let needNewSession = true;
+
+      if (loadedSession && loadedSession.date === today
+          && loadedSession.words && loadedSession.words.length > 0) {
+        // 恢复今日进度
         this.sessionWords = loadedSession.words;
-        this.activeIndices = loadedSession.activeIndices;
+        this.activeIndices = loadedSession.activeIndices || [];
         this.isFinished = loadedSession.isFinished;
         this.hasSavedStats = loadedSession.hasSavedStats;
-        this.stats = loadedSession.stats;
+        this.stats = loadedSession.stats
+          || { familiar: 0, know: 0, vague: 0, forgot: 0 };
         this.isRepeatMode = loadedSession.isRepeatMode || false;
+        this.dailyCount = loadedSession.dailyCount || wantDaily;
         this.totalWordsCount = this.sessionWords.length;
         this.updateUniqueStudied();
-      } else {
-        const userFamiliar = await getStoreValue('vocab_familiar_words') || [];
-        
-        // 使用原生的 Set 去重，把 O(N*M) 降为 O(N+M)
-        const familiarSet = new Set(userFamiliar);
-        const learnPool = words.filter(w => !familiarSet.has(w.english));
 
-        if (learnPool.length === 0) {
-          this.isFinished = true;
-          this.totalWordsCount = 0;
-          return;
+        // 若用户在设置里改了每日数量，且今天一个词都还没看过，就按新数量重新抽词
+        if (wantDaily !== this.dailyCount && this.uniqueStudiedCount === 0) {
+          needNewSession = true;
+        } else {
+          needNewSession = false;
         }
-
-        const shuffled = this.shuffle([...learnPool]);
-        const chosen = shuffled.slice(0, Math.min(50, shuffled.length));
-
-        this.sessionWords = chosen.map(w => ({
-          english: w.english,
-          phonetic: w.phonetic,
-          chinese: w.chinese,
-          shownCount: 0,      
-          targetCount: 1,     
-          state: 'none',       
-          firstState: 'none'  
-        }));
-        this.activeIndices = [];
-        for (let i = 0; i < this.sessionWords.length; i++) {
-          this.activeIndices.push(i);
-        }
-
-        this.isFinished = false;
-        this.isRepeatMode = false;
-        this.hasSavedStats = false;
-        this.stats = { familiar: 0, know: 0, vague: 0, forgot: 0 };
-        this.totalWordsCount = this.sessionWords.length;
-        this.uniqueStudiedCount = 0;
-        this.saveCurrentSession();
       }
+
+      if (needNewSession) {
+        await this.startNewSession(wantDaily);
+      }
+
       this.loadIndexWord();
       this.updateTime();
       
@@ -387,11 +387,63 @@
         this.updateTime();
       }, 1000);
     },
+
+    /**
+     * 按用户设置的「每日背诵数量」重新抽词。
+     * 走 wordLoader 的惰性抽样：只解析被命中的分片，不会把整本词库展开成 JS 对象。
+     */
+    async startNewSession(dailyCount) {
+      this.dailyCount = dailyCount;
+
+      // 已标记为「熟知」的词不再出现在学习中
+      const userFamiliar = await getStoreValue('vocab_familiar_words') || [];
+      const familiarMap = {};
+      for (let i = 0; i < userFamiliar.length; i++) {
+        familiarMap[userFamiliar[i]] = true;
+      }
+
+      const chosen = pickDaily(dailyCount, familiarMap);
+
+      this.sessionWords = chosen.map(w => ({
+        english: w.english,
+        phonetic: w.phonetic,
+        chinese: w.chinese,
+        shownCount: 0,      
+        targetCount: 1,     
+        state: 'none',       
+        firstState: 'none'  
+      }));
+      this.activeIndices = [];
+      for (let i = 0; i < this.sessionWords.length; i++) {
+        this.activeIndices.push(i);
+      }
+
+      this.isFinished = false;
+      this.isRepeatMode = false;
+      this.hasSavedStats = false;
+      this.stats = { familiar: 0, know: 0, vague: 0, forgot: 0 };
+      this.totalWordsCount = this.sessionWords.length;
+      this.uniqueStudiedCount = 0;
+
+      if (this.sessionWords.length === 0) {
+        // 词库已全部标记为熟知，没有可学的词
+        this.isFinished = true;
+        this.totalWordsCount = 0;
+        return;
+      }
+      this.saveCurrentSession(true);
+    },
     onDestroy() {
       if (this.timer) {
         clearInterval(this.timer);
         this.timer = null;
       }
+      // 退出页面前把未落盘的进度立刻写入，避免节流丢数据
+      if (this.saveTimer) {
+        clearTimeout(this.saveTimer);
+        this.saveTimer = null;
+      }
+      this.saveCurrentSession(true);
     },
 
     updateTime() {
@@ -399,16 +451,6 @@
       const h = ('0' + d.getHours()).slice(-2);
       const m = ('0' + d.getMinutes()).slice(-2);
       this.currentTime = `${h}:${m}`;
-    },
-
-    shuffle(arr) {
-      for (let i = arr.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        const temp = arr[i];
-        arr[i] = arr[j];
-        arr[j] = temp;
-      }
-      return arr;
     },
 
     loadIndexWord() {
@@ -506,17 +548,42 @@
       await setStoreValue('vocab_global_stats', statsMap);
     },
 
-    saveCurrentSession() {
-      setStoreValue('vocab_today_save', {
-        date: getLocalDate(),
-        words: this.sessionWords,
-        activeIndices: this.activeIndices,
-        isFinished: this.isFinished,
-        hasSavedStats: this.hasSavedStats,
-        stats: this.stats,
-        isRepeatMode: this.isRepeatMode,
-        totalWordsCount: this.totalWordsCount
-      });
+    /**
+     * 保存当日进度。
+     * 每日词量可能较大，逐次全量写 storage 开销高，这里做 400ms 节流合并；
+     * 传入 immediate=true 可跳过节流立刻落盘（会话结束/页面销毁时用）。
+     */
+    saveCurrentSession(immediate) {
+      const doSave = () => {
+        setStoreValue('vocab_today_save', {
+          date: getLocalDate(),
+          words: this.sessionWords,
+          activeIndices: this.activeIndices,
+          isFinished: this.isFinished,
+          hasSavedStats: this.hasSavedStats,
+          stats: this.stats,
+          isRepeatMode: this.isRepeatMode,
+          dailyCount: this.dailyCount,
+          totalWordsCount: this.totalWordsCount
+        });
+      };
+
+      if (immediate) {
+        if (this.saveTimer) {
+          clearTimeout(this.saveTimer);
+          this.saveTimer = null;
+        }
+        doSave();
+        return;
+      }
+
+      if (this.saveTimer) {
+        clearTimeout(this.saveTimer);
+      }
+      this.saveTimer = setTimeout(() => {
+        this.saveTimer = null;
+        doSave();
+      }, 400);
     },
 
     startRepeatPractice() {

@@ -10,6 +10,22 @@
         </div>
 
         <div class="settings-card">
+          <text class="card-title">每日背诵数量</text>
+          <div class="stepper">
+            <div class="step-btn" @click="changeDaily(-10)">
+              <text class="step-txt">－</text>
+            </div>
+            <div class="step-value" @click="showDailyPresets">
+              <text class="step-value-txt">{{ dailyCount }}</text>
+            </div>
+            <div class="step-btn" @click="changeDaily(10)">
+              <text class="step-txt">＋</text>
+            </div>
+          </div>
+          <text class="card-desc">可设范围 10 ~ 200 个，步长 10。点击数字可快速选择常用档位。今天尚未开始背诵时，修改后立即生效。</text>
+        </div>
+
+        <div class="settings-card">
           <text class="card-title">清除数据</text>
           <text class="card-desc">清除所有统计和进度。</text>
           <div class="action-btn danger-style" @click="startClearConfirmation">
@@ -137,6 +153,41 @@
     font-weight: bold;
   }
 
+  /* ========== 每日数量步进器 ========== */
+  .stepper {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    margin-top: 10px;
+  }
+  .step-btn {
+    width: 30%;
+    height: 60px;
+    border-radius: 12px;
+    background-color: #2c3e50;
+    justify-content: center;
+    align-items: center;
+  }
+  .step-txt {
+    font-size: 28px;
+    color: #ffffff;
+    font-weight: bold;
+  }
+  .step-value {
+    width: 32%;
+    height: 60px;
+    border-radius: 12px;
+    background-color: #3498db;
+    justify-content: center;
+    align-items: center;
+  }
+  .step-value-txt {
+    font-size: 26px;
+    color: #ffffff;
+    font-weight: bold;
+  }
+
   .row-item {
     flex-direction: row;
     justify-content: space-between;
@@ -187,12 +238,29 @@
   import prompt from '@system.prompt';
   import brightness from '@system.brightness';
 
+  // ===== 每日背诵数量配置（与 learn.ux 保持一致）=====
+  const KEY_DAILY = 'daily_word_count';
+  const DAILY_DEFAULT = 50;
+  const DAILY_MIN = 10;
+  const DAILY_MAX = 200;
+  const DAILY_PRESETS = [20, 50, 100, 200];
+
+  // 范围校验：越界钳制，非法值回落默认
+  const normalizeDaily = (val) => {
+    const n = parseInt(val, 10);
+    if (isNaN(n)) return DAILY_DEFAULT;
+    if (n < DAILY_MIN) return DAILY_MIN;
+    if (n > DAILY_MAX) return DAILY_MAX;
+    return n;
+  };
+
   export default {
   
     private: {
       currentTime: '00:00', 
       timer: null,
       keepScreenOn: false,
+      dailyCount: DAILY_DEFAULT,
     },
   onReady() {
     this.updateTime();          // 立即显示一次
@@ -231,10 +299,78 @@
           this.keepScreenOn = false;
         }
       });
+
+      // 读取每日背诵数量
+      storage.get({
+        key: KEY_DAILY,
+        success: (data) => {
+          const n = normalizeDaily(data);
+          this.dailyCount = n;
+          // 读到越界或非法值时，顺手修正回合法范围
+          if (String(n) !== String(data)) {
+            this.persistDaily(n, true);
+          }
+        },
+        fail: () => {
+          this.dailyCount = DAILY_DEFAULT;
+        }
+      });
     },
 
     goBack() {
       router.back();
+    },
+
+    // ====== 每日背诵数量 ======
+    changeDaily(delta) {
+      let next = this.dailyCount + delta;
+      if (next < DAILY_MIN) {
+        next = DAILY_MIN;
+        prompt.showToast({ message: `最少 ${DAILY_MIN} 个` });
+      } else if (next > DAILY_MAX) {
+        next = DAILY_MAX;
+        prompt.showToast({ message: `最多 ${DAILY_MAX} 个` });
+      }
+      if (next === this.dailyCount) return;
+      this.dailyCount = next;
+      this.persistDaily(next);
+    },
+
+    // 点击数字弹出常用档位
+    showDailyPresets() {
+      const buttons = [];
+      for (let i = 0; i < DAILY_PRESETS.length; i++) {
+        buttons.push({ text: String(DAILY_PRESETS[i]), color: '#3498db' });
+      }
+      buttons.push({ text: '取消', color: '#888888' });
+
+      prompt.showDialog({
+        title: '每日背诵数量',
+        message: `当前 ${this.dailyCount} 个，可选范围 ${DAILY_MIN} ~ ${DAILY_MAX}`,
+        buttons: buttons,
+        success: (data) => {
+          if (data && data.index >= 0 && data.index < DAILY_PRESETS.length) {
+            this.dailyCount = DAILY_PRESETS[data.index];
+            this.persistDaily(this.dailyCount);
+          }
+        }
+      });
+    },
+
+    // 持久化保存；silent=true 时不弹提示
+    persistDaily(val, silent) {
+      storage.set({
+        key: KEY_DAILY,
+        value: String(val),
+        success: () => {
+          if (!silent) {
+            prompt.showToast({ message: `已设为每日 ${val} 个`, duration: 1200 });
+          }
+        },
+        fail: () => {
+          prompt.showToast({ message: '保存失败，请重试', duration: 1500 });
+        }
+      });
     },
 
     // ====== 屏幕常亮开关 ======
@@ -305,7 +441,7 @@
           success: () => {
             deleteCount++;
             if (deleteCount === allWipeKeys.length && !errorOccurred) {
-              prompt.showToast({ text: '清除完毕' });
+              prompt.showToast({ message: '清除完毕', duration: 1500 });
             }
           },
           fail: () => {
